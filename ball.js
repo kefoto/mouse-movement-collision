@@ -25,6 +25,7 @@ class Ball {
     this.isDragging = false;
     this.isMoving = false;
     this._latest_points = [];
+    this._angle_samples = [];
     this.a_r = 0;
     this.prev_acce_vector = new Vector(0, 0);
     balls.push(this);
@@ -68,8 +69,20 @@ class Ball {
     this._latest_points.push([MouseX, MouseY]);
   }
 
+  addAngle(angle) {
+    if (this._angle_samples.length > 10) {
+      this._angle_samples.shift();
+    }
+    // if(Math.abs(angle) > 5 && Math.abs(angle)){
+      this._angle_samples.push(angle);
+    // }
+
+  }
+  
+
   updatePhysics() {
     // cancelAnimationFrame(timer);
+    let centripetal_acce = new Vector(0,0);
     if (this.isDragging) {
       // debugger;
       const temp = calculateDifferencesAndMean(this._latest_points);
@@ -77,17 +90,32 @@ class Ball {
       if (Math.abs(temp.deltaX) < epsilon && Math.abs(temp.deltaY) < epsilon) {
         this.acce.x = this.acce.y = 0;
         // centripetalVeloChange = new Vector(0, 0);
-        // this.velo = this.velo.mult(1 - friction).mult(0.9);
+        this.velo = this.velo.mult(1 - friction).mult(0.9);
       } else {
         //TODO: DECREASE the number of calculation
 
         this.acce.x = temp.deltaX * this.acceleration;
         this.acce.y = temp.deltaY * this.acceleration;
-
         // console.log(cal_Angle_V(this.prev_acce_vector, this.acce));
+        const delta_degree = rotateVector(this.acce,cal_Angle_V(this.prev_acce_vector, this.acce));
+        this.addAngle(cal_Angle_V(this.prev_acce_vector, this.acce));
+
+        // console.log(calculateMeanAngle(this._angle_samples), this._angle_samples);
+        console.log(calculateMeanAngle(this._angle_samples),cal_Angle_V(this.prev_acce_vector, this.acce));
+        
         this.prev_acce_vector = this.acce.copy();
 
+        // this.velo = this.velo.add(this.acce).add(delta_degree).mult(1 - friction);
+
         this.velo = this.velo.add(this.acce).mult(1 - friction);
+
+
+        //TODO: AN IF STATEMENT ON ONLY CIRCULAR MOTION BUT NOT STRARIGHT LINE AND 180 degree
+        centripetal_acce = rotateVector(this.velo, calculateMeanAngle(this._angle_samples)*(1 - friction)).subtr(this.velo);
+
+        this.velo = this.velo.add(centripetal_acce.mult(1 - friction));
+        // centripetal_acce = mirrorVector(this.velo, this.acce).normal();
+        // console.log(centripetal_acce, this.velo);
 
         if (this.velo.mag() !== 0) {
           this.isMoving = true;
@@ -97,7 +125,6 @@ class Ball {
 
         // if (this.velo.mag() > 0 && (this.a_r > epsilon && this.a_r < 2000)) {
 
-        //   //TODO: this reaches the infinity, the
         //   const acce_scalar = this.velo.mag() ** 2 / this.a_r;
         //   centripetalVeloChange = this.velo.normal().mult(acce_scalar);
 
@@ -117,6 +144,10 @@ class Ball {
 
       // console.log(this.acce, this.velo, temp);
     } else {
+      if(centripetal_acce.mag() !== 0){
+        this.velo = this.velo.add(centripetal_acce);
+        centripetal_acce = new Vector(0,0);
+      }
       this.velo = this.velo.mult(1 - friction);
 
       if (this.velo.mag() <= epsilon) {
@@ -313,8 +344,6 @@ class Vector {
   }
 }
 
-
-
 function mousectrl() {
 
   // cancelAnimationFrame()
@@ -434,6 +463,35 @@ function calculateAngle(x, y) {
   return angleDegrees;
 }
 
+function rotateVector(v, angleDegrees) {
+  // Convert Cartesian coordinates to polar coordinates
+  const magnitude = Math.sqrt(v.x ** 2 + v.y ** 2);
+  let angleRadians = Math.atan2(v.y, v.x);
+
+  // Add the desired angle (in degrees)
+  angleRadians += (angleDegrees * Math.PI) / 180;
+
+  // Convert back to Cartesian coordinates
+  const newX = magnitude * Math.cos(angleRadians);
+  const newY = magnitude * Math.sin(angleRadians);
+
+  // Return the new vector components
+  return new Vector(newX, newY);
+}
+
+function mirrorVector(originalVector, mirrorVector) {
+  // Calculate the angle between the two vectors
+  const angleBetween = cal_Angle_V(originalVector, mirrorVector);
+
+  // Double the angle to determine the mirroring angle
+  const mirroringAngle = 2 * angleBetween;
+
+  // Use the rotateVector function to mirror the vector
+  const mirroredVector = rotateVector(originalVector, mirroringAngle);
+
+  return mirroredVector;
+}
+
 function cal_Angle_V(vx, vy) {
   const dot = vx.dot(vy);
   const magx = vx.mag();
@@ -486,6 +544,8 @@ function calculateDifferencesAndMean(points) {
     { deltaX: 0, deltaY: 0 }
   );
 
+
+
   // console.log(meanDifference);
 
   // Divide by the number of differences to get the mean
@@ -494,6 +554,18 @@ function calculateDifferencesAndMean(points) {
   meanDifference.deltaY /= numDifferences;
 
   return meanDifference;
+}
+
+function calculateMeanAngle(angles){
+  var sum = 0;
+  for (let i = 1; i < angles.length; i++) {
+    sum += angles[i];
+  }
+  // console.log(sum);
+  if(angles.length == 0){
+    return 0;
+  }
+  return sum/angles.length;
 }
 
 
@@ -509,9 +581,9 @@ function mainloop() {
     ball.drawPoints();
     // ball.fitCircle();
     ball.display();
-    if(ball.isMoving){
-      console.log(ball.isMoving, ball.velo);
-    }
+    // if(ball.isMoving){
+    //   console.log(ball.isMoving, ball.velo);
+    // }
     // console.log(ball.isMoving);
   }
   requestAnimationFrame(mainloop);
