@@ -163,133 +163,69 @@ class Ball {
       // Check for collision with other balls
       for (const otherBall of balls) {
         if (this !== otherBall) {
-          // this.handleBallCollision(otherBall);
+          this.handleBallCollision(otherBall);
         }
       }
     }
   }
 
   handleWallCollision() {
-    if (this.pos.x < this.r || this.pos.x > canvas.width - this.r) {
+    if (this.pos.x <= this.r || this.pos.x >= canvas.width - this.r) {
       this.velo.x *= -1; // Reverse velocity on collision with horizontal borders
     }
-    if (this.pos.y < this.r || this.pos.y > canvas.height - this.r) {
+    if (this.pos.y <= this.r || this.pos.y >= canvas.height - this.r) {
       this.velo.y *= -1; // Reverse velocity on collision with vertical borders
     }
   }
 
-  // handleBallCollision(otherBall) {
-  //   const distance = this.pos.subtr(otherBall.pos).mag();
-  //   const combinedRadius = this.r + otherBall.r;
+  handleBallCollision(otherBall) {
+    const distance = this.pos.subtr(otherBall.pos).mag();
 
-  //   if (distance < combinedRadius) {
-  //     // Collision detected, update velocities for both balls
-  //     let normal = this.pos.subtr(otherBall.pos).unit();
-  //     let relativeVelocity = this.velo.subtr(otherBall.velo);
+    if (distance <= this.r + otherBall.r) {
+        // Collission detected, update velocities for both balls
+        this.penetration_resolution(otherBall);
+        this.collision_resolution(otherBall);
+        // let normal = this.pos.subtr(otherBall.pos).unit();
+        // let relativeVelocity = this.velo.subtr(otherBall.velo);
+        // const relativeSpeedAlongNormal = relativeVelocity.dot(normal);
+        // if (relativeSpeedAlongNormal < 0) {
+        //     const impulse =
+        //         (2 * relativeSpeedAlongNormal) /
+        //         (1 / this.mass + 1 / otherBall.mass);
 
-  //     const impulse =
-  //       (2 * relativeVelocity.dot(normal)) /
-  //       (1 / this.mass + 1 / otherBall.mass);
+        //     this.velo = this.velo.subtr(normal.mult(impulse / this.mass));
+        //     otherBall.velo = otherBall.velo.add(normal.mult(impulse / otherBall.mass));
 
-  //     this.velo = this.velo.subtr(normal.mult(impulse / this.mass));
-  //     otherBall.velo = otherBall.velo.add(normal.mult(impulse / otherBall.mass));
+        //     // Move balls away from each other to prevent sticking
+        //     const overlap = combinedRadius - distance;
+        //     const moveVec = normal.mult(overlap / 2);
 
-  //     // Move balls away from each other to prevent sticking
-  //     const overlap = combinedRadius - distance;
-  //     const moveVec = normal.mult(overlap / 2);
-
-  //     this.pos = this.pos.add(moveVec);
-  //     otherBall.pos = otherBall.pos.subtr(moveVec);
-  //   }
-  // }
-
-  fitCircle() {
-    // Check if we have enough points (at least 3)
-    if (this._latest_points.length < 3) {
-      return;
-      console.error("Insufficient points to fit a circle");
-      // return null;
+        //     this.pos = this.pos.add(moveVec);
+        //     otherBall.pos = otherBall.pos.subtr(moveVec);
+        // }
     }
-
-    let meanX = 0;
-    let meanY = 0;
-    for (let i = 0; i < this._latest_points.length; i++) {
-      meanX += this._latest_points[i][0];
-      meanY += this._latest_points[i][1];
-    }
-
-    meanX /= this._latest_points.length;
-    meanY /= this._latest_points.length;
-
-    // Initialize variables for the least squares method
-    let sumX = 0;
-    let sumY = 0;
-    let sumX2 = 0;
-    let sumY2 = 0;
-    let sumXY = 0;
-    let sumX3 = 0;
-    let sumY3 = 0;
-    let sumX2Y = 0;
-    let sumXY2 = 0;
-
-    // Calculate the necessary sums
-    for (let i = 0; i < this._latest_points.length; i++) {
-      let x = this._latest_points[i][0] - meanX;
-      let y = this._latest_points[i][1] - meanY;
-
-      sumX += x;
-      sumY += y;
-      sumX2 += x * x;
-      sumY2 += y * y;
-      sumXY += x * y;
-      sumX3 += x * x * x;
-      sumY3 += y * y * y;
-      sumX2Y += x * x * y;
-      sumXY2 += x * y * y;
-    }
-
-    const A = [
-      [sumX2, sumXY, sumX],
-      [sumXY, sumY2, sumY],
-      [sumX, sumY, this._latest_points.length],
-    ];
-
-    // Calculate coefficients for the circle equation
-    let N = this._latest_points.length;
-    let D = N * sumX2 - sumX * sumX;
-
-    // Calculate circle parameters
-    const B = [
-      sumX * meanX + sumY * meanY,
-      sumX2 * meanY - sumY * meanX,
-      sumX * meanY - sumY2 * meanX,
-    ];
-
-    let svdResult = SVDJS.SVD(A);
-
-    const solution = svdResult.v.map((row, i) =>
-      svdResult.u
-        .map((col) => col[i])
-        .reduce((acc, val, j) => acc + val * B[j], 0)
-    );
-
-    let a = solution[0];
-    let b = solution[1];
-    let c = solution[2];
-    this.a_r = Math.sqrt(a * a + b * b - 4 * c) / 2;
-    //because the number is too big
-    //TODO: put a logistic function in it range from 0 to 30
-    // this.a_r = Math.sqrt(this.a_r);
-    if (D == 0) {
-      this.a_r = 0;
-    } else if (isNaN(this.a_r)) {
-      this.a_r = 0;
-    }
-    // console.log(N,D,a,b,c);
-    // console.log(svdResult);
-
-    // console.log("Predicted Radius:", this.a_r);
   }
+
+  penetration_resolution(otherBall) {
+    let dist = this.pos.subtr(otherBall.pos);
+    let pen_depth = this.r + otherBall.r -dist.mag();
+    let pen_res = dist.unit().mult(pen_depth/2);
+    this.pos = this.pos.add(pen_res);
+    otherBall.pos = otherBall.pos.add(pen_res.mult(-1));
+  }
+
+  collision_resolution(otherBall) {
+    let normal = this.pos.subtr(otherBall.pos).unit();
+    let relvel = this.velo.subtr(otherBall.velo);
+    let sepvel = relvel.dot(normal);
+    let new_sepvel = -sepvel;
+    let sepvelvec = normal.mult(new_sepvel);
+
+    this.velo = this.velo.add(sepvelvec);
+    otherBall.velo = otherBall.velo.add(sepvelvec.mult(-1));
+  }
+
+
 }
 
 class Vector {
@@ -344,6 +280,10 @@ class Vector {
   }
 }
 
+function round(number, precision){
+  let factor = 10 ** precision;
+  return Math.round(number * factor)/ factor;
+}
 function mousectrl() {
 
   // cancelAnimationFrame()
@@ -374,10 +314,6 @@ function mousectrl() {
       if (intervalId === null) {
         intervalId = setInterval(function () {
           movingBall.addPosition(movingBall.pos.x, movingBall.pos.y);
-
-          if (movingBall._latest_points.length >= 3) {
-            movingBall.fitCircle();
-          }
 
           // console.log(movingBall.pos.x, movingBall.pos.y, (new Date().getTime() - startTime) / 1000);
         }, 25);
@@ -576,8 +512,9 @@ function mainloop() {
   mousectrl();
 
   for (const ball of balls) {
-    ball.updatePhysics();
     ball.drawBall();
+    ball.updatePhysics();
+    
     ball.drawPoints();
     // ball.fitCircle();
     ball.display();
