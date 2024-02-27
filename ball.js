@@ -71,7 +71,7 @@ class Ball {
   }
 
   addPosition(MouseX, MouseY) {
-    if (this._latest_points.length > 5) {
+    if (this._latest_points.length > 10) {
       this._latest_points.shift();
     }
     this._latest_points.push([MouseX, MouseY]);
@@ -278,17 +278,24 @@ function mousectrl() {
         ball.addPosition(ball.pos.x, ball.pos.y);
         // timer = requestAnimationFrame(mainloop);
         // startTime = new Date().getTime();
+        // if (!isRecording) {
+        //   isRecording = true;
+
+
+        //   // Start recording at a throttled rate
+        //   recordInterval = setInterval(function () {
+        //     ball.addPosition(ball.pos.x, ball.pos.y);
+        //     timeLapse = Date.now() - startTime;
+
+        //     // console.log(timeLapse);
+        //     // console.log(movingBall.pos.x, movingBall.pos.y, (new Date().getTime() - startTime) / 1000);
+        //   }, 15);
+        // }
+
         if (!isRecording) {
           isRecording = true;
-
-          // Start recording at a throttled rate
-          recordInterval = setInterval(function () {
-            ball.addPosition(ball.pos.x, ball.pos.y);
-            timeLapse = Date.now() - startTime;
-
-            // console.log(timeLapse);
-            // console.log(movingBall.pos.x, movingBall.pos.y, (new Date().getTime() - startTime) / 1000);
-          }, 15);
+          startTime = Date.now();
+          requestAnimationFrame(mainloop);
         }
 
         break;
@@ -342,21 +349,10 @@ function mousectrl() {
     for (const ball of balls) {
       ball.isDragging = false;
     }
-    clearInterval(recordInterval);
+    // clearInterval(recordInterval);
     isRecording = false;
   });
 
-  // document.addEventListener("DOMContentLoaded", function () {
-  //   // Your initialization code here
-  //   // For example, creating balls and setting up the canvas
-  //   let b1 = new Ball(200, 200, 30);
-  //   let b2 = new Ball(150, 100, 20);
-  //   mouseForce = 0.1;
-  //   friction = 0.04;
-  //   // Start the animation loop
-  //   console.log("loaded");
-  //   timer = requestAnimationFrame(mainloop);
-  // });
 }
 
 // Add event listeners
@@ -489,18 +485,24 @@ function mainloop(currentTime) {
       ball.drawBall();
       ball.drawPoints();
       ball.display();
+
+      if (ball.isDragging) {
+        ball.addPosition(ball.pos.x, ball.pos.y);
+        timeLapse = Date.now() - startTime;
+      }
     }
     // Update the last frame time
     lastFrameTime = currentTime;
+    requestAnimationFrame(mainloop);
   }
 
   // Request the next animation frame
-  requestAnimationFrame(mainloop);
+  
 }
 
 let b1 = new Ball(200, 200, 30);
 let b2 = new Ball(150, 100, 20);
-mouseForce = 0.8;
+mouseForce = 0.3;
 friction = 0.04;
 
 requestAnimationFrame(mainloop);
