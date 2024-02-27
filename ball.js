@@ -35,6 +35,7 @@ class Ball {
     this.isMoving = false;
     this._latest_points = [];
     this._angle_samples = [];
+    this.centripetal_acce = new Vector(0, 0);
     this.prev_acce_vector = new Vector(0, 0);
     balls.push(this);
   }
@@ -88,37 +89,36 @@ class Ball {
   
 
   updatePhysics() {
-    let centripetal_acce = new Vector(0,0);
     if (this.isDragging) {
       const temp = calculateDifferencesAndMean(this._latest_points);
       if (Math.abs(temp.deltaX) < epsilon && Math.abs(temp.deltaY) < epsilon) {
         this.acce.x = this.acce.y = 0;
+        this.centripetal_acce = new Vector(0,0);
         this.velo = this.velo.mult(1 - friction).mult(0.9);
       } else {
-        //TODO: DECREASE the number of calculation
 
         this.acce.x = temp.deltaX * this.acceleration;
         this.acce.y = temp.deltaY * this.acceleration;
         // console.log(cal_Angle_V(this.prev_acce_vector, this.acce));
-        const delta_degree = rotateVector(this.acce,cal_Angle_V(this.prev_acce_vector, this.acce));
+
         this.addAngle(cal_Angle_V(this.prev_acce_vector, this.acce));
 
         // console.log(calculateMeanAngle(this._angle_samples), this._angle_samples);
-        console.log(calculateMeanAngle(this._angle_samples),cal_Angle_V(this.prev_acce_vector, this.acce));
+        // console.log(calculateMeanAngle(this._angle_samples),cal_Angle_V(this.prev_acce_vector, this.acce));
         
         this.prev_acce_vector = this.acce.copy();
 
         // this.velo = this.velo.add(this.acce).add(delta_degree).mult(1 - friction);
 
-        this.velo = this.velo.add(this.acce).mult(1 - friction);
-
-
+        this.velo = this.velo.add(this.acce);
+        this.velo = rotateVector(this.velo, cal_Angle_V(this.velo, this.acce));
+        this.velo = this.velo.mult(1-friction).mult(0.95);
         //TODO: AN IF STATEMENT ON ONLY CIRCULAR MOTION BUT NOT STRARIGHT LINE AND 180 degree
-        centripetal_acce = rotateVector(this.velo, calculateMeanAngle(this._angle_samples)*(1 - friction)).subtr(this.velo);
+        this.centripetal_acce = rotateVector(this.velo, calculateMeanAngle(this._angle_samples) * 3).subtr(this.velo);
+        // this.centripetal_acce = this.centripetal_acce.mult(1-friction);
+        console.log(this.centripetal_acce);
+        // this.velo = this.velo.add(centripetal_acce.mult(1 - friction));
 
-        this.velo = this.velo.add(centripetal_acce.mult(1 - friction));
-        // centripetal_acce = mirrorVector(this.velo, this.acce).normal();
-        // console.log(centripetal_acce, this.velo);
         if (this.velo.mag() !== 0) {
           this.isMoving = true;
         }
@@ -126,9 +126,11 @@ class Ball {
 
       // console.log(this.acce, this.velo, temp);
     } else {
-      if(centripetal_acce.mag() !== 0){
-        this.velo = this.velo.add(centripetal_acce);
-        centripetal_acce = new Vector(0,0);
+
+      if(this.centripetal_acce.mag() !== 0 && this.velo.mag() !== 0){
+
+        this.velo = this.velo.add(this.centripetal_acce);
+        this.centripetal_acce = new Vector(0,0);
       }
       this.velo = this.velo.mult(1 - friction);
 
@@ -274,24 +276,7 @@ function mousectrl() {
       );
       if (distance < ball.r) {
         ball.isDragging = true;
-        // ball.isMoving = true;
         ball.addPosition(ball.pos.x, ball.pos.y);
-        // timer = requestAnimationFrame(mainloop);
-        // startTime = new Date().getTime();
-        // if (!isRecording) {
-        //   isRecording = true;
-
-
-        //   // Start recording at a throttled rate
-        //   recordInterval = setInterval(function () {
-        //     ball.addPosition(ball.pos.x, ball.pos.y);
-        //     timeLapse = Date.now() - startTime;
-
-        //     // console.log(timeLapse);
-        //     // console.log(movingBall.pos.x, movingBall.pos.y, (new Date().getTime() - startTime) / 1000);
-        //   }, 15);
-        // }
-
         if (!isRecording) {
           isRecording = true;
           startTime = Date.now();
@@ -489,6 +474,7 @@ function mainloop(currentTime) {
       if (ball.isDragging) {
         ball.addPosition(ball.pos.x, ball.pos.y);
         timeLapse = Date.now() - startTime;
+        // console.log("yea");
       }
     }
     // Update the last frame time
