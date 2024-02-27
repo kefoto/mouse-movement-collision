@@ -12,8 +12,17 @@ var anglepre = 0;
 let friction;
 let mouseForce;
 const epsilon = 1e-4;
-let intervalId = null;
-let movingBall;
+
+let startTime;
+let timeLapse = 0;
+
+let recordInterval;
+let isRecording = false;
+
+const targetFrameRate = 90; // Set your target frame rate
+const frameInterval = 1000 / targetFrameRate; // Calculate the interval between frames
+
+let lastFrameTime = 0;
 
 class Ball {
   constructor(x, y, r) {
@@ -26,7 +35,6 @@ class Ball {
     this.isMoving = false;
     this._latest_points = [];
     this._angle_samples = [];
-    this.a_r = 0;
     this.prev_acce_vector = new Vector(0, 0);
     balls.push(this);
   }
@@ -73,23 +81,18 @@ class Ball {
     if (this._angle_samples.length > 10) {
       this._angle_samples.shift();
     }
-    // if(Math.abs(angle) > 5 && Math.abs(angle)){
+
       this._angle_samples.push(angle);
-    // }
 
   }
   
 
   updatePhysics() {
-    // cancelAnimationFrame(timer);
     let centripetal_acce = new Vector(0,0);
     if (this.isDragging) {
-      // debugger;
       const temp = calculateDifferencesAndMean(this._latest_points);
-      // var centripetalVeloChange;
       if (Math.abs(temp.deltaX) < epsilon && Math.abs(temp.deltaY) < epsilon) {
         this.acce.x = this.acce.y = 0;
-        // centripetalVeloChange = new Vector(0, 0);
         this.velo = this.velo.mult(1 - friction).mult(0.9);
       } else {
         //TODO: DECREASE the number of calculation
@@ -116,31 +119,10 @@ class Ball {
         this.velo = this.velo.add(centripetal_acce.mult(1 - friction));
         // centripetal_acce = mirrorVector(this.velo, this.acce).normal();
         // console.log(centripetal_acce, this.velo);
-
         if (this.velo.mag() !== 0) {
           this.isMoving = true;
         }
-
-        // console.log(this.velo);
-
-        // if (this.velo.mag() > 0 && (this.a_r > epsilon && this.a_r < 2000)) {
-
-        //   const acce_scalar = this.velo.mag() ** 2 / this.a_r;
-        //   centripetalVeloChange = this.velo.normal().mult(acce_scalar);
-
-        //   const maxMagnitude = 1000;
-        //   const scaleFactor = Math.min(1, maxMagnitude / centripetalVeloChange.mag());
-
-        //   centripetalVeloChange = centripetalVeloChange.mult(scaleFactor);
-
-        //   // one if statement to add or subtr
-        //   this.velo = this.velo.add(centripetalVeloChange).mult(1 - friction);
-
-        //   console.log(acce_scalar);
-        //   console.log(centripetalVeloChange);
-        // }
       }
-      // this.velo = this.velo.add(centripetalVeloChange).mult(1 - friction);
 
       // console.log(this.acce, this.velo, temp);
     } else {
@@ -172,9 +154,11 @@ class Ball {
   handleWallCollision() {
     if (this.pos.x <= this.r || this.pos.x >= canvas.width - this.r) {
       this.velo.x *= -1; // Reverse velocity on collision with horizontal borders
+      this.velo.x *= 0.9;
     }
     if (this.pos.y <= this.r || this.pos.y >= canvas.height - this.r) {
       this.velo.y *= -1; // Reverse velocity on collision with vertical borders
+      this.velo.y *= 0.9;
     }
   }
 
@@ -185,24 +169,16 @@ class Ball {
         // Collission detected, update velocities for both balls
         this.penetration_resolution(otherBall);
         this.collision_resolution(otherBall);
-        // let normal = this.pos.subtr(otherBall.pos).unit();
-        // let relativeVelocity = this.velo.subtr(otherBall.velo);
-        // const relativeSpeedAlongNormal = relativeVelocity.dot(normal);
-        // if (relativeSpeedAlongNormal < 0) {
-        //     const impulse =
-        //         (2 * relativeSpeedAlongNormal) /
-        //         (1 / this.mass + 1 / otherBall.mass);
+        otherBall.handleWallCollision();
 
-        //     this.velo = this.velo.subtr(normal.mult(impulse / this.mass));
-        //     otherBall.velo = otherBall.velo.add(normal.mult(impulse / otherBall.mass));
-
-        //     // Move balls away from each other to prevent sticking
-        //     const overlap = combinedRadius - distance;
-        //     const moveVec = normal.mult(overlap / 2);
-
-        //     this.pos = this.pos.add(moveVec);
-        //     otherBall.pos = otherBall.pos.subtr(moveVec);
-        // }
+        if (otherBall.velo.mag() !== 0) {
+          otherBall.isMoving = true;
+        } else if (otherBall.velo.mag() <= epsilon) {
+          otherBall.velo = new Vector(0, 0);
+          otherBall.isMoving = false;
+        } else {
+          otherBall.isMoving = false;
+        }
     }
   }
 
@@ -300,26 +276,25 @@ function mousectrl() {
         ball.isDragging = true;
         // ball.isMoving = true;
         ball.addPosition(ball.pos.x, ball.pos.y);
-        movingBall = ball;
         // timer = requestAnimationFrame(mainloop);
         // startTime = new Date().getTime();
+        if (!isRecording) {
+          isRecording = true;
+
+          // Start recording at a throttled rate
+          recordInterval = setInterval(function () {
+            ball.addPosition(ball.pos.x, ball.pos.y);
+            timeLapse = Date.now() - startTime;
+
+            // console.log(timeLapse);
+            // console.log(movingBall.pos.x, movingBall.pos.y, (new Date().getTime() - startTime) / 1000);
+          }, 15);
+        }
+
         break;
       }
     }
-    // clearInterval(intervalId);
 
-    if (movingBall == null) {
-      return;
-    } else {
-      if (intervalId === null) {
-        intervalId = setInterval(function () {
-          movingBall.addPosition(movingBall.pos.x, movingBall.pos.y);
-
-          // console.log(movingBall.pos.x, movingBall.pos.y, (new Date().getTime() - startTime) / 1000);
-        }, 25);
-      }
-    }
-    // console.log(_latest_points.toString());
   });
 
   canvas.addEventListener(
@@ -365,14 +340,10 @@ function mousectrl() {
     // Release all dragged balls when the mouse is up
     // console.log("Mouse up event");
     for (const ball of balls) {
-      movingBall = null;
       ball.isDragging = false;
-
-      if (intervalId !== null) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
     }
+    clearInterval(recordInterval);
+    isRecording = false;
   });
 
   // document.addEventListener("DOMContentLoaded", function () {
@@ -505,30 +476,31 @@ function calculateMeanAngle(angles){
 }
 
 
-function mainloop() {
-  // console.log(timer);
+function mainloop(currentTime) {
+  const elapsedTime = currentTime - lastFrameTime;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
   mousectrl();
-
-  for (const ball of balls) {
-    ball.drawBall();
-    ball.updatePhysics();
-    
-    ball.drawPoints();
-    // ball.fitCircle();
-    ball.display();
-    // if(ball.isMoving){
-    //   console.log(ball.isMoving, ball.velo);
-    // }
-    // console.log(ball.isMoving);
+  // Check if enough time has passed to proceed to the next frame
+  if (elapsedTime > frameInterval) {
+    // Your animation/update logic goes here
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const ball of balls) {
+      ball.updatePhysics();
+      ball.drawBall();
+      ball.drawPoints();
+      ball.display();
+    }
+    // Update the last frame time
+    lastFrameTime = currentTime;
   }
+
+  // Request the next animation frame
   requestAnimationFrame(mainloop);
 }
 
 let b1 = new Ball(200, 200, 30);
 let b2 = new Ball(150, 100, 20);
-mouseForce = 0.14;
+mouseForce = 0.8;
 friction = 0.04;
 
 requestAnimationFrame(mainloop);
