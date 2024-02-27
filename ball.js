@@ -72,7 +72,7 @@ class Ball {
   }
 
   addPosition(MouseX, MouseY) {
-    if (this._latest_points.length > 10) {
+    if (this._latest_points.length > 7) {
       this._latest_points.shift();
     }
     this._latest_points.push([MouseX, MouseY]);
@@ -84,9 +84,7 @@ class Ball {
     }
 
       this._angle_samples.push(angle);
-
   }
-  
 
   updatePhysics() {
     if (this.isDragging) {
@@ -94,7 +92,7 @@ class Ball {
       if (Math.abs(temp.deltaX) < epsilon && Math.abs(temp.deltaY) < epsilon) {
         this.acce.x = this.acce.y = 0;
         this.centripetal_acce = new Vector(0,0);
-        this.velo = this.velo.mult(1 - friction).mult(0.9);
+        this.velo = this.velo.mult(1 - friction).mult(0.8);
       } else {
 
         this.acce.x = temp.deltaX * this.acceleration;
@@ -113,7 +111,7 @@ class Ball {
         this.velo = this.velo.add(this.acce);
         this.velo = rotateVector(this.velo, cal_Angle_V(this.velo, this.acce));
         this.velo = this.velo.mult(1-friction).mult(0.95);
-        //TODO: AN IF STATEMENT ON ONLY CIRCULAR MOTION BUT NOT STRARIGHT LINE AND 180 degree
+      
         this.centripetal_acce = rotateVector(this.velo, calculateMeanAngle(this._angle_samples) * 3).subtr(this.velo);
         // this.centripetal_acce = this.centripetal_acce.mult(1-friction);
         console.log(this.centripetal_acce);
@@ -154,6 +152,17 @@ class Ball {
   }
 
   handleWallCollision() {
+    if (this.pos.x < this.r) {
+      this.pos.x = this.r;
+    } else if (this.pos.x > canvas.width - this.r) {
+      this.pos.x = canvas.width - this.r;
+    }
+    if (this.pos.y < this.r) {
+      this.pos.y = this.r;
+    } else if (this.pos.y > canvas.height - this.r) {
+      this.pos.y = canvas.height - this.r;
+    }
+    
     if (this.pos.x <= this.r || this.pos.x >= canvas.width - this.r) {
       this.velo.x *= -1; // Reverse velocity on collision with horizontal borders
       this.velo.x *= 0.9;
@@ -162,6 +171,8 @@ class Ball {
       this.velo.y *= -1; // Reverse velocity on collision with vertical borders
       this.velo.y *= 0.9;
     }
+
+    
   }
 
   handleBallCollision(otherBall) {
@@ -293,7 +304,6 @@ function mousectrl() {
     "mousemove",
     _.throttle(function (event) {
       // console.log()
-      // cancelAnimationFrame(timer);
       const mouseX = event.clientX - canvas.getBoundingClientRect().left;
       const mouseY = event.clientY - canvas.getBoundingClientRect().top;
 
@@ -321,11 +331,10 @@ function mousectrl() {
           }
         }
       }
-
       // if (balls.some((ball) => ball.isMoving || ball.isDragging)) {
       //   timer = requestAnimationFrame(mainloop);
       // }
-    },30)
+    },15)
   );
 
   canvas.addEventListener("mouseup", function (event) {
@@ -370,10 +379,8 @@ function rotateVector(v, angleDegrees) {
 function mirrorVector(originalVector, mirrorVector) {
   // Calculate the angle between the two vectors
   const angleBetween = cal_Angle_V(originalVector, mirrorVector);
-
   // Double the angle to determine the mirroring angle
   const mirroringAngle = 2 * angleBetween;
-
   // Use the rotateVector function to mirror the vector
   const mirroredVector = rotateVector(originalVector, mirroringAngle);
 
@@ -386,16 +393,13 @@ function cal_Angle_V(vx, vy) {
   const magy = vy.mag();
 
   if (magx === 0 || magy === 0) {
-    // console.error("Cannot calculate angle with zero-length vector.");
     return 0;
   }
 
   const crossProduct = vx.x * vy.y - vx.y * vy.x;
   const sign = crossProduct >= 0 ? 1 : -1;
   const cosTheta = dot / (magx * magy);
-
   const theta = Math.acos(cosTheta);
-  // console.log(vx,vy, cosTheta, theta);
 
   if (isNaN(theta)) {
     return 0;
@@ -432,10 +436,6 @@ function calculateDifferencesAndMean(points) {
     { deltaX: 0, deltaY: 0 }
   );
 
-
-
-  // console.log(meanDifference);
-
   // Divide by the number of differences to get the mean
   const numDifferences = differences.length || 1; // Avoid division by zero
   meanDifference.deltaX /= numDifferences;
@@ -455,7 +455,6 @@ function calculateMeanAngle(angles){
   }
   return sum/angles.length;
 }
-
 
 function mainloop(currentTime) {
   const elapsedTime = currentTime - lastFrameTime;
@@ -486,8 +485,11 @@ function mainloop(currentTime) {
   
 }
 
+
 let b1 = new Ball(200, 200, 30);
 let b2 = new Ball(150, 100, 20);
+let b3 = new Ball(100, 120, 20);
+let b4 = new Ball(220, 100, 20);
 mouseForce = 0.3;
 friction = 0.04;
 
